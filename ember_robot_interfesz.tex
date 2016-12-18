@@ -1,0 +1,128 @@
+\documentclass{article}
+
+\usepackage[utf8]{inputenc} 
+
+\usepackage{hyperref}
+\hypersetup{
+    colorlinks=true,
+    pdfborder={0 0 0},
+    urlcolor=red,
+}
+
+\usepackage{graphicx}
+\graphicspath{ {img/} }
+
+\usepackage{wrapfig}
+
+\usepackage{amsmath}
+\numberwithin{figure}{section}
+
+\newcommand{\secref}[1]{\aref{sec:#1}.fejezet}
+\newcommand{\figref}[1]{\aref{fig:#1}.ábr}
+\newcommand{\tabref}[1]{\aref{tab:#1}.táblázat}
+\newcommand{\Secref}[1]{\Aref{sec:#1}.fejezet}
+\newcommand{\Figref}[1]{\Aref{fig:#1}.ábr}
+\newcommand{\Tabref}[1]{\Aref{tab:#1}.táblázat}
+
+\newenvironment{compactlist}
+{ \begin{itemize}
+    \setlength{\itemsep}{0pt}
+    \setlength{\parskip}{0pt}
+    \setlength{\parsep}{0pt}
+	\setlength{\topsep}{0pt}
+}
+{ \end{itemize}} 
+
+\usepackage[magyar]{babel}
+
+\date{2016-12-09}
+\title{NaoMarkTracker\\{\normalsize Ember-robot interfész házi feladat}}
+
+\author{Antal János Benjamin\\G9PTHG\\antal.janos.benjamin@gmail.com}
+
+
+\begin{document}
+	\begin{sloppypar}
+		\pagenumbering{gobble}
+		\maketitle
+		\newpage
+		\pagenumbering{arabic}
+		
+		
+		\section{Motiváció}
+			\paragraph{}
+			A félév során néhány esemény hatására különböző kis jeleneteket megvalósító programot terveztem készíteni házi feladatként. A feladatom készítése során az egyik jelenet megvalósításához szükség volt egy olyan modulra, amely a \textit{FaceTracker}höz és a \textit{RedBallTracker}hez hasonló funkcionalitással rendelkezik, csak arc és piros labda helyett NaoMarkokkal dolgozik, hogy a robot meg tudjon közelíteni és követni egyes NaoMarkokkal megjelelölt tárgyakat vagy személyeket. Sajnos a Choreography nem rendelkezett ilyen modullal, és az interneten sem sikerült megoldást találnom a problémára. Továbbá a szívesebben fejlesztek szöveges programozási környezetben, mint grafikusban, mivel közelebb áll a szakmai tudásomhoz Ezen okok miatt, amikor Zainkó Csaba felvetette, hogy akár ezt a modult meg is lehet írni C++-ban, akkor megváltoztattam a saját magam által kitúzött célt a házi feladat kapcsán.\par
+			\begin{figure}[h]
+				\centering	
+				\includegraphics[scale=0.5]{walktracker}
+				\caption{\textit{Walk Tracker} belső felépítése}
+				\label{fig:walktracker}
+			\end{figure}
+			Az így kialakult elképzelés alapján a fentebb említett két modul funkcionalitásának egy részét megvalósító modult terveztem készíteni NaoMarkok követésére. A hozzájuk tartozó dokumentáció áttanulmányozása után, véleményem szerint a teljes funkcionalitást megvalósító modul elkészítése túlmutat a tárgy keretein belül, így csak az adott feladathoz feltétlenül szükséges funkcionalitást valósítom meg. Természetesen a munkám során törekedtem az érthető és egyszerűen továbbfejleszthető modul készítésére, hogy a jövőben lehetőség legyen a kiegészítésre.
+		
+		
+		\section{Specifikáció}
+		\subsection{Megvalósítandó funkcionalitás}
+		\Figref{walktracker}án látható a \textit{Walk Tracker} belső felépítése, mely két részre oszlik: \textit{Tracker} és \textit{WalkToTarget}. Előbbi felelős azért, hogy a kamera képe alapján meghatározza piros labda vagy az arc koordinátáit, majd a sárgán jelölt kapcsolat mentén ezt az információt átadja a \textit{WalkToTarget}nek, amely megközelíti a megadott paramétereknek megfelelően. A \textit{Tracker} beállításainál kiválaszthatjuk a követendő objektumot (piros labda vagy egy arc), így az a választott értéknek megfelelő modult használja a belső működése során. A \textit{Tracker} python nyelvű forráskódja megvizsgálása után az alábbi függvényekre szűkítettem a szükséges függvényeket:
+		\begin{compactlist}
+			\item \textit{void startTracker()}: utasítja a trackert, hogy iratkozzon fel a LandmarkDetected eseményre, ezzel lehet elindítani a követést.
+			\item \textit{void stopTracker()}: utasítja a a trackert, hogy iratkozzon le a LandmarkDetected eseményre, ezzel lehet leállítani a követést.
+			\item \textit{std::vector\textless float\textgreater getPosition()}: a követendő NaoMark koordinátáit adja vissza a robotközpontú koordináta-rendszerben.\footnote{Pontosabban a FRAME\_TORSO nevű térben, lásd \href{http://doc.aldebaran.com/1-14/naoqi/motion/control-cartesian.html?highlight=frame_torso}{bővebben}}
+			\item \textit{bool isActive()}: igazat ad vissza, ha éppen fut a követés.
+			\item \textit{bool isNewData()}: igazat ad vissza, a legutóbbi getPosition hívás óta frissültek a NaoMark helyét leíró koordináták.
+			\item \textit{void setLandmarkRadius(float radius)}: a követni kívánt NaoMark sugarának beállítása, a pozíció meghatározása a NaoMark méretén alapul, alapértelmezett 0.05 méter.
+			\item \textit{void setLandmarkId(int markId)}: a követni kívánt NaoMark ID-jának megadása. Ha 0-t állítunk be, akkor az észlelt NaoMarkok közül az elsőt fogja követni, egyéb esetben csak a kívánt ID-val rendelkezőt.
+		\end{compactlist}
+		
+		\subsection{Felhasznált funkciók, információk}
+		\paragraph{}
+		A megvalósítás során felhasználtam a \href{http://doc.aldebaran.com/1-14/naoqi/vision/allandmarkdetection.html}{\textit{ALLandMarkDetection}} modult. Ez a modul generálja a \textit{LandmarkDetected} eseményt, amely azt jelzi, hogy a robot talált egy NaoMarkot. Ezután a \href{http://doc.aldebaran.com/1-14/naoqi/core/almemory-api.html?highlight=almemory#ALMemoryProxy}{\textit{ALMemoryProxy}} használatával megkaphatóak a következő információk:
+		\begin{compactlist}
+			\item a megtalálás időbélyege
+			\item a megtalált NaoMarkok mindegyikéről a következő információ:
+			\begin{compactlist}
+				\item a NaoMark helyzete és mérete kameraszögekben
+				\item a NaoMark azonosító, ha van
+			\end{compactlist}
+			\item a kamera koordinátái a robotközpontú koordináta-rendszerben
+			\item a kamerát tartalmazó fej elforgatását a három koordináta tengely körül
+		\end{compactlist}\par
+		Ezen információk a NaoMark méretével kiegészítve elegendőek ahhoz, hogy meghatározzuk a NaoMark pozícióját a robot koordináta rendszerében.\\
+		\begin{wrapfigure}[14]{R}{0\textwidth}
+    		\centering
+		    \includegraphics[width=0.25\textwidth]{coords}
+		    \caption{A robot koordináta rendszere}
+		    \label{fig:coords}
+		\end{wrapfigure}
+		%
+		\section{Működés}
+		\paragraph{}		
+		A modul funkciói két részre különíthetőek el: 
+		\begin{compactlist}
+			\item \textbf{LandmarkDetected esemény feldolgozása}: az ALLandMarkDetection modul által generált esemény adatainak tárolása
+			\item \textbf{NaoMark pozíciójának meghatározása}: az eltárolt információk alapján a NaoMark pozíciójának meghatározása \figref{coords}án mutatott koordináta rendszerben.
+		\end{compactlist}
+		
+		\subsection{LandmarkDetected esemény feldolgozása}
+		\paragraph{}
+		A \textit{LandmarkDetected} eseményt a \textit{ALLandmarkDetection} modul generálja, ha van az eseményre feliratkozott modul. A feliratkozás az \textit{ALMemoryProxy::subscribeToEvent(eventName, callbackModule,  callbackMethod)} három string típusú paraméterrel rendelkező függvény meghívásával lehetséges. A feliratkozás automatikusan elindítja a NaoMark detektciót. Ha detektál egy NaoMarkot, akkor meghívja a \textit{callbackModule} modul \textit{callbackMethod} paraméter nélküli függvényét, ezzel jelezve, hogy a detekció adatai az \textit{ALMemoryProxy} \textit{"landmarkDetected"} kulcshoz tartozó adatblokkba került. Ezt az \textit{ALMemoryPoxy::getData(key)} függvény segítségével tudjuk kiolvasni. A feldolgozásnak gyorsnak kell lennie (\textless 300ms), így az értéket csak eltároljuk a \textit{detectInfo} tagávltozóban. \par
+		Az \textit{isNewData} működése során a \textit{detectInfo}ban keresi a megfelelő azonosítójú NaoMarkot. Ha talál  egyet, akkor azt a \textit{lastDetectedMarkInfo}ban eltárolja. Ez azért szükséges, mert ha egy új NaoMark detekció során nem detektálja az adott azonosítójú NaoMarkot, akkor az \textit{isNewData} igaz visszatérési értéke esetén a \textit{getPosition} meghívása hibás működést eredményezne. A \textit{lastDetectedMarkInfo} megváltozásakor a \textit{lastDetectedCameraPos} változóban az adott észlelés pillanatában a kamera pozícióját leíró \textit{Position6D} struktúra és eltárolásra kerül. Ez a későbbiekben a NaoMark pozíciójának pontosabb meghatározásához szükséges.
+		
+		\subsection{NaoMark pozíciójának meghatározása}
+		\paragraph{}
+		A NaoMark pozíciójának meghatározása homogén transzformációs mátrixok segítségével történik. A három transzformációs mátrix az alábbi:
+		\begin{compactlist}
+			\item \textbf{robotToCamera}: A kamera pozíciója alapján felépülő mátrix, mely azért felelős, hogy a NaoMark pozícióját kamera koordináta rendszeréből a robot \figref{coords}án ismertetett koordináta rendszerébe transzformálja.
+			\item \textbf{cameraToLandmarkRotationTransform}: A NaoMark kameraképen lévő pozícióját a vízszintes és függőleges tengely körüli forgatási szögekkel leírva kapjuk meg. Ez a mátrix azért felőlős, hogy a kamera koordináta rendszerében a megfelelő irányba állítsa a NaoMark pozícióját.
+			\item \textbf{cameraToLandmarkTranslationTransform}: A NaoMark kamerától történő eltolásáért felelős mátrix. Feladata az, hogy a NaoMark pozíciója a valóságnak megfelelő távolságra legyen a kamerától, a kamera koordináta rendszerének közepén.A távolság meghatározása a NaoMark méretén alapszik, így ha az eltér az alapértelmezett 6,5 cm-től, akkor mindenképpen be kell állítani a megfelelő működés érdekében.Mivel a távolság meghatározása a NaoMark méretén alapszik, így nem nagy pontosságú. A megfigyeléseim alapján a közel (~20-40 cm) lévő NaoMarkok esetén 
+		\end{compactlist}
+		A távolság meghatározása a NaoMark méretén alapszik, így ha az eltér az alapértelmezett 6,5 cm-től, akkor mindenképpen be kell állítani a megfelelő működés érdekében.Mivel a távolság meghatározása a NaoMark méretén alapszik, így nem nagy pontosságú. A megfigyeléseim alapján a közel (~20-40 cm) lévő NaoMarkok esetén a távolsághoz mérten jelentős (5-10, akár 12 cm is lehet) a pontatlanság, míg nagyobb (16cm átmérőjű) és messzebb (~4m) lévő NaoMarkok esetén a távolsághoz képest nem jelentős (10-15cm) a pontatlanság mértéke.
+		\section{Megvalósítás}
+		\subsection{Környezet felállítása, buildelés}
+		\paragraph{}
+		
+		\subsection{Implementáció}
+		\paragraph{}		
+		
+	\end{sloppypar}
+\end{document}
