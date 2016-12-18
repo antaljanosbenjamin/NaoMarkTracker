@@ -33,6 +33,15 @@
 }
 { \end{itemize}} 
 
+\newenvironment{compactnumbered}
+{ \begin{enumerate}
+    \setlength{\itemsep}{0pt}
+    \setlength{\parskip}{0pt}
+    \setlength{\parsep}{0pt}
+	\setlength{\topsep}{0pt}
+}
+{ \end{enumerate}} 
+
 \usepackage[magyar]{babel}
 
 \date{2016-12-09}
@@ -60,7 +69,6 @@
 			\end{figure}
 			Az így kialakult elképzelés alapján a fentebb említett két modul funkcionalitásának egy részét megvalósító modult terveztem készíteni NaoMarkok követésére. A hozzájuk tartozó dokumentáció áttanulmányozása után, véleményem szerint a teljes funkcionalitást megvalósító modul elkészítése túlmutat a tárgy keretein belül, így csak az adott feladathoz feltétlenül szükséges funkcionalitást valósítom meg. Természetesen a munkám során törekedtem az érthető és egyszerűen továbbfejleszthető modul készítésére, hogy a jövőben lehetőség legyen a kiegészítésre.
 		
-		
 		\section{Specifikáció}
 		\subsection{Megvalósítandó funkcionalitás}
 		\Figref{walktracker}án látható a \textit{Walk Tracker} belső felépítése, mely két részre oszlik: \textit{Tracker} és \textit{WalkToTarget}. Előbbi felelős azért, hogy a kamera képe alapján meghatározza piros labda vagy az arc koordinátáit, majd a sárgán jelölt kapcsolat mentén ezt az információt átadja a \textit{WalkToTarget}nek, amely megközelíti a megadott paramétereknek megfelelően. A \textit{Tracker} beállításainál kiválaszthatjuk a követendő objektumot (piros labda vagy egy arc), így az a választott értéknek megfelelő modult használja a belső működése során. A \textit{Tracker} python nyelvű forráskódja megvizsgálása után az alábbi függvényekre szűkítettem a szükséges függvényeket:
@@ -73,6 +81,7 @@
 			\item \textit{void setLandmarkRadius(float radius)}: a követni kívánt NaoMark sugarának beállítása, a pozíció meghatározása a NaoMark méretén alapul, alapértelmezett 0.05 méter.
 			\item \textit{void setLandmarkId(int markId)}: a követni kívánt NaoMark ID-jának megadása. Ha 0-t állítunk be, akkor az észlelt NaoMarkok közül az elsőt fogja követni, egyéb esetben csak a kívánt ID-val rendelkezőt.
 		\end{compactlist}
+		Feladatom volt tehát az említett függvényeket megvalósító modul készítése C++ nyelven, amely így lehetőséget teremt a NaoMarkok követésére az archoz és piros labdához hasonlóan.
 		
 		\subsection{Felhasznált funkciók, információk}
 		\paragraph{}
@@ -120,9 +129,54 @@
 		\section{Megvalósítás}
 		\subsection{Környezet felállítása, buildelés}
 		\paragraph{}
+		A modul készítése során a következő programokat használtam:
+		\begin{compactlist}
+			\item qibuild 1.14.1
+			\item Nao Geode cross toolchain (linux x64) 1.14.5
+		\end{compactlist}
+		A továbbiakban feltételezem ezen eszközök meglétét, illetve hogy a qibuild-et a parancssorban "qibuild"-ként lehet futtatni, illetve a cross toolchain elérési útja "/path/to/geoderoot", valamint az általam készített trackermodule.zip elérési útja a "/path/to/trackermodule.zip". Ezután az alábbi lépések szükségesek a modul buildeléséhez:
+		\begin{compactnumbered}
+			\item \begin{verbatim}mkdir worktree; cd worktree\end{verbatim}
+			\item \begin{verbatim}qibuild init \end{verbatim}
+			\item \begin{verbatim}qitoolchain create cross-atom /path/to/geoderoot/toolchain.xml\end{verbatim}
+			\item \begin{verbatim}unzip /path/to/trackermodule.zip -d .; cd trackermodule\end{verbatim}
+			\item \begin{verbatim}qibuild configure -c cross-atom\end{verbatim}
+			\item \begin{verbatim}qibuild make -c cross-atom\end{verbatim}
+		\end{compactnumbered}
+		\par Ezután a "worktree/trackermodule/build-cross-atom/sdk/lib/naoqi" könyvtárban megjelenik a \textit{liblandmarktracker.so} fájl, mely az elkészült modult tartalmazza. A fájlt felmásolva a robotra és a az elérési útját beírva a /home/nao/naoqi/preferences/autoload.ini fájlba, a modul elérhetővé válik a következő indítás után.		
+		\subsection{Használat Choreography-ban}
+		\paragraph{}
+		Ha a modul elérhető a roboton, akkor lehetőség nyílik Choreographyn keresztül elérni és használni. A házi feladatom során \figref{walktracker}án bemutatott \textit{WalkTracker} funkcionalitását egészítettem ki az elkészített modullal.
+		\par Első lépésként a \textit{Walk Tracker} konfigurációs paramétereit bővítettem \figref{extended}án  látható \textit{Landmark radius} és \textit{Landmark ID} paraméterekkel. Ezek a fentebb már említett paraméterek, azaz a NaoMark mérete és a NaoMark azonosítója.
+		\begin{figure}[h]
+			\centering	
+			\includegraphics[scale=0.6]{extended}
+			\caption{A kiegészített \textit{Extended Walk Tracker} konfigurációs ablaka}
+			\label{fig:extended}
+		\end{figure}
+		\par Következő lépésként a \textit{Walk Tracker}-ben található \textit{Tracker} doboz pyhton kódját módosítottam úgy, hogy a \textit{Face Tracker} és \textit{Red Ball Tracker} mellett a \textit{LandmarkTracker}-t is használja, a megfelelő beállításokkal. A megváltoztatott \textit{if-else} szerkezet az alábbiakban látható:
+		\begin{verbatim}
+if (self.TargetName == "Red Ball"):
+    self.trackerProxy = ALProxy("ALRedBallTracker")
+elif (self.TargetName == "LandMark"):
+    self.trackerProxy = ALProxy("LandMarkTracker")
+    self.trackerProxy.setLandmarkId(self.getParameter("Landmark ID"))
+    self.trackerProxy.setLandmarkRadius(self.getParameter("Landmark radius"))
+else:
+    self.trackerProxy = ALProxy("ALFaceTracker")
+		\end{verbatim}
 		
-		\subsection{Implementáció}
-		\paragraph{}		
+	\section{Összefoglalás}
+	\subsection{Továbbfejlesztési lehetőségek}
+	\paragraph{}
+	Az elkészített modul használható, azonban nem tökéletes. A fejlesztés késői fázisában, valamint a tesztelés során felmerült továbbfejlesztési lehetőségek:
+	\begin{compactlist}
+		\item \textbf{setWholeBodyOn}: a függvény megvalósítása jelenleg semmit nem csinál. Igény szerint pontosítani lehetne a függvény funkcionalitását és ez alapján elkészíteni egy implementációját a modul egyéb függvényeinek kiegészítésével együtt.
+		\item \textbf{A NaoMark és a kamera tengelye által bezárt szög}: az aktuális implementáció nem veszi figyelembe azt, hogy a NaoMark nem mindig merőleges a kamera előremutató tengelyére. Ez akkor okozhat hibát, ha a NaoMark nem teljesen szemben van a kamerával, hanem a saját függőleges tengelye körül kissé elforgatva, mivel a távolság meghatározása a NaoMark szélességén alapszik.
+	\end{compactlist}
+	\subsection{Értékelés}
+	\paragraph{}
+	A munkám során megismerkedtem a NaoQI C++ API-jával, azon belül komolyabb ismereteket szereztem a \textit{LandmarkDetection}, \textit{ALMotionProxy}, \textit{ALMemoryProxy} modulokról és a robot által használt homogén koordinátás transzformációkról, valamint a robot belső eseménykezeléséről. Ezen információk alapján készítettem el a C++ nyelvű modult, amely a hiányosságai ellenére a gyakorlatban jól használható. A pontossága egy nagyságrendben van a két beépített hasonló modul pontatlanságával. A hiányosságok abból erednek, hogy a tárgy erőforrásai végesek, valamint egyéb egyetemi tantárgyak miatt nem tudtam a hiánytalan modulhoz szükséges időt (ami az elvárt ráfordítás többszöröse véleményem szerint) fordítani a házi feladatomra. A tesztelés és kipróbálás során a robot meg tudta becsülni a NaoMark pozícióját, és ez alapján a szükséges távolságot tudta tartani a NaoMarkhoz képest. Ezen eredményekre alapozva véleményem szerint teljesítettem a házi feladatban kitűzött célokat.	
 		
 	\end{sloppypar}
 \end{document}
